@@ -1,0 +1,46 @@
+name: SGDK Auto Release
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential openjdk-17-jdk zip
+
+      - name: Clone SGDK
+        run: |
+          git clone https://github.com/Stephane-D/SGDK.git $HOME/SGDK
+
+      - name: Set environment
+        run: |
+          echo "GDK=$HOME/SGDK" >> $GITHUB_ENV
+          echo "$HOME/SGDK/bin" >> $GITHUB_PATH
+
+      - name: Build ROM
+        run: |
+          make clean
+          make -f $HOME/SGDK/makefile.gen
+
+      - name: Get version
+        id: version
+        run: echo "tag=v$(date +%Y.%m.%d-%H%M)" >> $GITHUB_OUTPUT
+
+      - name: Create Release + Upload ROM
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: SGDK Build ${{ steps.version.outputs.tag }}
+          files: |
+            *.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
