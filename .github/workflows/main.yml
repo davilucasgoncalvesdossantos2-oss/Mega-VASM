@@ -1,53 +1,44 @@
-name: SGDK Build
+name: SGDK Build (Cloud)
 
 on:
   push:
   workflow_dispatch:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 📥 pega seu código
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 🧰 dependências do sistema
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git build-essential make openjdk-17-jdk
+          sudo apt install -y git build-essential openjdk-17-jdk make wget
 
-      # 📦 baixa SGDK
       - name: Clone SGDK
-        run: git clone https://github.com/Stephane-D/SGDK.git $HOME/SGDK
+        run: |
+          git clone https://github.com/Stephane-D/SGDK.git SGDK
 
-      # ⚙️ configura ambiente SGDK
       - name: Setup SGDK environment
         run: |
-          echo "GDK=$HOME/SGDK" >> $GITHUB_ENV
-          echo "$HOME/SGDK/bin" >> $GITHUB_PATH
+          echo "GDK=$GITHUB_WORKSPACE/SGDK" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/SGDK/bin" >> $GITHUB_PATH
 
-      # 🧹 garante permissão
-      - name: Fix permissions
-        run: chmod +x $HOME/SGDK/bin/* || true
+      - name: Check SGDK tools
+        run: |
+          ls SGDK/bin || true
+          which m68k-elf-gcc || echo "gcc not found (expected if not bundled)"
 
-      # 🔨 build do jogo
       - name: Build ROM
         run: |
-          make clean || true
-          make -f $HOME/SGDK/makefile.gen
+          make -f SGDK/makefile.gen
 
-      # 📦 salva ROM gerada
       - name: Upload ROM
         uses: actions/upload-artifact@v4
         with:
           name: sgdk-rom
           path: |
             *.bin
-            *.md
-            *.smd          path: "*.bin"
+            out/release/*.bin
