@@ -4,34 +4,50 @@ on:
   push:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 📥 pega seu código
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
+      # 🧰 dependências do sistema
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git build-essential openjdk-17-jdk
+          sudo apt install -y git build-essential make openjdk-17-jdk
 
+      # 📦 baixa SGDK
       - name: Clone SGDK
         run: git clone https://github.com/Stephane-D/SGDK.git $HOME/SGDK
 
-      - name: Set SGDK environment
+      # ⚙️ configura ambiente SGDK
+      - name: Setup SGDK environment
         run: |
           echo "GDK=$HOME/SGDK" >> $GITHUB_ENV
           echo "$HOME/SGDK/bin" >> $GITHUB_PATH
 
-      - name: Build game
+      # 🧹 garante permissão
+      - name: Fix permissions
+        run: chmod +x $HOME/SGDK/bin/* || true
+
+      # 🔨 build do jogo
+      - name: Build ROM
         run: |
-          make clean
+          make clean || true
           make -f $HOME/SGDK/makefile.gen
 
+      # 📦 salva ROM gerada
       - name: Upload ROM
         uses: actions/upload-artifact@v4
         with:
           name: sgdk-rom
-          path: "*.bin"
+          path: |
+            *.bin
+            *.md
+            *.smd          path: "*.bin"
