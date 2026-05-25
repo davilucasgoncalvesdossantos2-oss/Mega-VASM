@@ -1,4 +1,4 @@
-name: SGDK Mega Drive Build + Release
+name: SGDK Mega Drive Build
 
 on:
   push:
