@@ -1,23 +1,78 @@
-name: build
+name: SGDK Mega Drive Build + Release
 
-on: push
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # -------------------------
+      # 1. Checkout
+      # -------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - run: sudo apt update && sudo apt install -y build-essential git wget openjdk-17-jdk
+      # -------------------------
+      # 2. Dependências base
+      # -------------------------
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential git wget make \
+            openjdk-17-jdk \
+            gcc-m68k-linux-gnu \
+            binutils-m68k-linux-gnu
 
-      - run: git clone https://github.com/Stephane-D/SGDK.git
+      # -------------------------
+      # 3. SGDK
+      # -------------------------
+      - name: Clone SGDK
+        run: |
+          git clone https://github.com/Stephane-D/SGDK.git
+          echo "SGDK=$PWD/SGDK" >> $GITHUB_ENV
 
-      - run: java -jar SGDK/bin/rescomp.jar res/resources.res
+      # -------------------------
+      # 4. Config toolchain (IMPORTANTE)
+      # -------------------------
+      - name: Setup SGDK toolchain
+        run: |
+          echo "PREFIX=m68k-linux-gnu-" >> $GITHUB_ENV
+          echo "PATH=$PATH" >> $GITHUB_ENV
 
-      - run: make -f SGDK/makefile.gen
+      # -------------------------
+      # 5. Build resources
+      # -------------------------
+      - name: Build resources
+        run: |
+          java -jar SGDK/bin/rescomp.jar res/resources.res
 
-      - uses: actions/upload-artifact@v4
+      # -------------------------
+      # 6. Build ROM
+      # -------------------------
+      - name: Build ROM
+        run: |
+          make -f SGDK/makefile.gen PREFIX=m68k-linux-gnu-
+
+      # -------------------------
+      # 7. Preparar release
+      # -------------------------
+      - name: Prepare release
+        run: |
+          mkdir -p release
+          cp out/*.bin release/rom.bin
+
+      # -------------------------
+      # 8. Criar RELEASE (DOWNLOAD BOTÃO)
+      # -------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: rom
-          path: out/*.bin
+          tag_name: v1.0.${{ github.run_number }}
+          name: SGDK Build ${{ github.run_number }}
+          files: release/rom.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
