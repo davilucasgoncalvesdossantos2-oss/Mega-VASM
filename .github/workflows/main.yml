@@ -1,37 +1,42 @@
-name: Build m68k-elf-gcc (iratahack)
+name: SGDK Build (with iratahack toolchain)
 
 on:
   workflow_dispatch:
   push:
 
 jobs:
-  build-toolchain:
+  build:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout repo (with submodules)
+    - name: Checkout repo
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
+    # =========================
+    # DEPENDÊNCIAS
+    # =========================
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y \
-          build-essential \
-          git \
-          wget \
-          texinfo \
-          bison \
-          flex \
-          libgmp-dev \
-          libmpfr-dev \
-          libmpc-dev \
-          libisl-dev \
-          python3 \
-          unzip
+          build-essential git wget texinfo \
+          bison flex libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
+          python3 unzip
 
-    - name: Clone iratahack toolchain
+    # =========================
+    # SGDK
+    # =========================
+    - name: Clone SGDK
+      run: |
+        git clone https://github.com/Stephane-D/SGDK.git
+        cd SGDK
+        export GDK=$PWD
+        make -f makelib.gen
+
+    # =========================
+    # TOOLCHAIN (iratahack)
+    # =========================
+    - name: Clone m68k toolchain
       run: |
         git clone --recursive https://github.com/iratahack/m68k-elf-gcc.git
 
@@ -41,21 +46,36 @@ jobs:
         chmod +x crosstool-build.sh
         ./crosstool-build.sh
 
-    - name: Add toolchain to PATH
+    # =========================
+    # FIX CRÍTICO PATH
+    # =========================
+    - name: Setup PATH correctly
       run: |
         echo "$GITHUB_WORKSPACE/m68k-elf-gcc/m68k-elf/bin" >> $GITHUB_PATH
+        echo "GDK=$GITHUB_WORKSPACE/SGDK" >> $GITHUB_ENV
 
-    - name: Test compiler
+    # =========================
+    # TESTE DO COMPILADOR
+    # =========================
+    - name: Verify toolchain
       run: |
+        ls m68k-elf-gcc/m68k-elf/bin || true
         m68k-elf-gcc --version
 
-    - name: Package toolchain
+    # =========================
+    # BUILD ROM (SGDK)
+    # =========================
+    - name: Build ROM
       run: |
-        cd m68k-elf-gcc
-        tar -czf m68k-elf-toolchain-linux.tar.gz m68k-elf
+        export GDK=$GITHUB_WORKSPACE/SGDK
+        export PATH=$PATH:$GITHUB_WORKSPACE/m68k-elf-gcc/m68k-elf/bin
+        make
 
-    - name: Upload artifact
+    # =========================
+    # ARTIFACT
+    # =========================
+    - name: Upload ROM
       uses: actions/upload-artifact@v4
       with:
-        name: m68k-elf-toolchain
-        path: m68k-elf-gcc/m68k-elf-toolchain-linux.tar.gz
+        name: rom
+        path: out/*.bin
